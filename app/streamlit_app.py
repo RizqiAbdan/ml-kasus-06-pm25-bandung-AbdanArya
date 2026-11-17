@@ -1,6 +1,6 @@
+
 import streamlit as st
 import pandas as pd
-
 from datetime import datetime, date, time
 
 
@@ -9,9 +9,9 @@ from datetime import datetime, date, time
 # ==========================================
 
 st.set_page_config(
-    page_title="PM2.5 Bandung Forecast",
-    page_icon="",
-    layout="wide"
+    page_title="Prakiraan PM2.5 Bandung",
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
 
 
@@ -19,17 +19,14 @@ st.set_page_config(
 # 2. HEADER
 # ==========================================
 
-st.title("PM2.5 Bandung Forecast")
+st.title("Prakiraan PM2.5 Bandung")
 
 st.caption(
-    "Sistem prakiraan konsentrasi PM2.5 "
-    "tiga jam ke depan pada lima stasiun Bandung."
+    "Prakiraan konsentrasi PM2.5 tiga jam ke depan "
+    "berdasarkan kondisi pengamatan pada lima stasiun Bandung."
 )
 
-st.info(
-    "Prototype aplikasi. Model Machine Learning "
-    "belum diintegrasikan."
-)
+st.divider()
 
 
 # ==========================================
@@ -46,45 +43,64 @@ stations = [
 
 
 # ==========================================
-# 4. FORM INPUT
+# 4. FORM PENGAMATAN
 # ==========================================
 
-st.header("Input Kondisi Udara")
+st.subheader("Data pengamatan")
 
-with st.form("prediction_form"):
+st.caption(
+    "Masukkan kondisi sensor pada waktu pengamatan. "
+    "Seluruh waktu menggunakan WIB."
+)
 
-    col1, col2 = st.columns(2)
+with st.form("observation_form"):
+
+    # Lokasi dan waktu
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-
         station = st.selectbox(
-            "Stasiun Pemantauan",
+            "Stasiun",
             stations
         )
 
+    with col2:
         observation_date = st.date_input(
-            "Tanggal Pengamatan",
+            "Tanggal",
             value=date.today()
         )
 
+    with col3:
         observation_time = st.time_input(
-            "Waktu Pengamatan",
+            "Waktu",
             value=time(15, 0)
         )
 
+    st.markdown("**Parameter sensor**")
+
+    # Baris pertama
+    col1, col2 = st.columns(2)
+
+    with col1:
         pm25 = st.number_input(
-            "PM2.5 Saat Ini (µg/m³)",
+            "PM2.5 (µg/m³)",
             min_value=0.0,
             value=25.0,
-            step=0.1
+            step=0.1,
+            help="Konsentrasi PM2.5 saat pengamatan."
         )
 
+    with col2:
         temperature = st.number_input(
-            "Suhu Udara (°C)",
+            "Suhu udara (°C)",
             value=27.0,
             step=0.1
         )
 
+    # Baris kedua
+    col1, col2 = st.columns(2)
+
+    with col1:
         humidity = st.number_input(
             "Kelembapan (%)",
             min_value=0.0,
@@ -94,75 +110,82 @@ with st.form("prediction_form"):
         )
 
     with col2:
-
         wind_speed = st.number_input(
-            "Kecepatan Angin (m/s)",
+            "Kecepatan angin (m/s)",
             min_value=0.0,
             value=2.0,
             step=0.1
         )
 
+    # Baris ketiga
+    col1, col2 = st.columns(2)
+
+    with col1:
         wind_direction = st.number_input(
-            "Arah Angin (derajat)",
+            "Arah angin (derajat)",
             min_value=0.0,
             max_value=360.0,
             value=180.0,
             step=1.0
         )
 
+    with col2:
         rainfall = st.number_input(
-            "Curah Hujan (mm)",
+            "Curah hujan (mm)",
             min_value=0.0,
             value=0.0,
             step=0.1
         )
 
     submitted = st.form_submit_button(
-        "Periksa Input",
+        "Proses pengamatan",
+        type="primary",
         use_container_width=True
     )
 
 
 # ==========================================
-# 5. VALIDASI DAN PENYIMPANAN INPUT
+# 5. VALIDASI INPUT
 # ==========================================
 
 if submitted:
 
     errors = []
 
-    if pm25 < 0:
-        errors.append("PM2.5 tidak boleh negatif.")
-
-    if not -20 <= temperature <= 60:
-        errors.append("Suhu di luar rentang pemeriksaan awal.")
-
-    if not 0 <= humidity <= 100:
-        errors.append("Kelembapan harus berada antara 0-100%.")
+    if humidity < 0 or humidity > 100:
+        errors.append(
+            "Kelembapan harus berada pada rentang 0–100%."
+        )
 
     if wind_speed < 0:
-        errors.append("Kecepatan angin tidak boleh negatif.")
+        errors.append(
+            "Kecepatan angin tidak boleh negatif."
+        )
 
     if not 0 <= wind_direction <= 360:
-        errors.append("Arah angin harus antara 0-360 derajat.")
+        errors.append(
+            "Arah angin harus berada pada rentang 0–360 derajat."
+        )
 
     if rainfall < 0:
-        errors.append("Curah hujan tidak boleh negatif.")
+        errors.append(
+            "Curah hujan tidak boleh negatif."
+        )
 
     if errors:
+
+        st.session_state.pop("observation_data", None)
 
         for error in errors:
             st.error(error)
 
-        st.session_state.pop("last_input", None)
-
     else:
 
-        input_data = {
+        observation_data = {
             "waktu": datetime.combine(
                 observation_date,
                 observation_time
-            ).isoformat(),
+            ).strftime("%Y-%m-%d %H:%M:%S"),
 
             "stasiun": station,
             "pm25_ugm3": pm25,
@@ -173,62 +196,34 @@ if submitted:
             "curah_hujan_mm": rainfall
         }
 
-        st.session_state["last_input"] = input_data
+        st.session_state["observation_data"] = observation_data
 
-        st.success("Input berhasil divalidasi!")
+        st.success(
+            f"Data pengamatan {station} berhasil divalidasi."
+        )
 
 
 # ==========================================
-# 6. RINGKASAN INPUT
+# 6. HASIL DAN RINGKASAN
 # ==========================================
 
-if "last_input" in st.session_state:
+if "observation_data" in st.session_state:
+
+    data = st.session_state["observation_data"]
+
+    with st.expander("Tinjau data yang akan diproses"):
+
+        st.json(data)
 
     st.divider()
 
-    st.header("Ringkasan Kondisi Pengamatan")
+    st.subheader("Prakiraan PM2.5 +3 jam")
 
-    data = st.session_state["last_input"]
-
-    col1, col2, col3 = st.columns(3)
-
-    col1.metric(
-        "PM2.5 Saat Ini",
-        f"{data['pm25_ugm3']} µg/m³"
+    st.info(
+        "Model Machine Learning belum terintegrasi. "
+        "Hasil prakiraan akan ditampilkan setelah "
+        "model dan preprocessing siap digunakan."
     )
-
-    col2.metric(
-        "Suhu",
-        f"{data['suhu_C']} °C"
-    )
-
-    col3.metric(
-        "Kelembapan",
-        f"{data['kelembaban_pct']}%"
-    )
-
-    st.subheader("Detail Data Input")
-
-    display_data = pd.DataFrame(
-        list(data.items()),
-        columns=["Parameter", "Nilai"]
-    )
-
-    st.dataframe(
-        display_data,
-        use_container_width=True,
-        hide_index=True
-    )
-
-    st.warning(
-        "Prediksi belum tersedia. "
-        "Hubungkan aplikasi dengan model Machine Learning "
-        "setelah artifact final selesai dibuat."
-    )
-
-    with st.expander("Lihat data JSON"):
-
-        st.json(data)
 
 
 # ==========================================
@@ -238,6 +233,5 @@ if "last_input" in st.session_state:
 st.divider()
 
 st.caption(
-    "Machine Learning Project · Kasus 06 "
-    "| Prakiraan PM2.5 Bandung"
+    "Machine Learning Project · Kasus 06 · PM2.5 Bandung"
 )
